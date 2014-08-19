@@ -24,7 +24,7 @@
 		<dependency>
 			<groupId>org.apache.hbase</groupId>
 			<artifactId>hbase</artifactId>
-			<version>0.94.17</version>
+			<version>0.94.22</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>

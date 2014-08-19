@@ -27,8 +27,8 @@ public class Main {
 		
 		Configuration conf = new Configuration();
 		
-		String dbName = "DS2";
-		//String dbName = "coupons";
+		//String dbName = "DS2";
+		String dbName = "coupons";
 
 		Set<String> excludedTables = new HashSet<String>();
 		excludedTables.add("CUST_HIST");
