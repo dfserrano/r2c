@@ -5,9 +5,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 
+import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.util.Bytes;
+import org.apache.log4j.Logger;
 
 import ch.hsr.geohash.GeoHash;
 
@@ -28,6 +31,8 @@ public class HBaseMigrationManager implements MigrationManager {
 	private Schema schema;
 	Configuration conf;
 
+	static final Logger logger = Logger.getLogger(HBaseMigrationManager.class);
+
 	public HBaseMigrationManager(Schema schema, Configuration conf) {
 		this.schema = schema;
 		this.conf = conf;
@@ -37,23 +42,43 @@ public class HBaseMigrationManager implements MigrationManager {
 		HBase hbase = new HBase();
 
 		try {
+			System.out.println("Creating HBase schema...");
+			logger.info("Creating HBase schema");
 			hbase.createTables(schema);
 
 			for (Table table : schema.getTables()) {
+				System.out.println("Migrating table " + table.getName());
+				logger.info("Migrating table " + table.getName());
+
 				if (!table.isDeleted()) {
-					System.out.println(table.getName());
-	
+					System.out.println("Migrating table " + table.getName());
+					logger.info("Migrating table " + table.getName());
+
 					for (ColumnFamily colFamily : table.getColumnFamilies()) {
+						System.out.println("Migrating column family "
+								+ colFamily.getName());
+						logger.info("Migrating column family "
+								+ colFamily.getName());
+
+						int counter = 0;
 						ResultSet rs = database.executeLargeQuery(colFamily
 								.getSql());
 
 						try {
 							while (rs.next()) {
+								counter++;
+								if (counter % 100000 == 0) {
+									System.out.println(" Record " + counter);
+									logger.info(" Record " + counter);
+								}
+
 								List<RecordValue> rowkey = extractRowkey(rs,
 										table.getKey());
 
 								long timestamp = getRowkeyTimestamp(rs,
 										table.getKey());
+								long roundedTimestamp = roundDownTimestamp(timestamp);
+
 								boolean hasTimestamp = (timestamp > 0) ? true
 										: false;
 
@@ -71,49 +96,57 @@ public class HBaseMigrationManager implements MigrationManager {
 										rs, colFamily, extColumnFamily);
 
 								for (Column column : colFamily.getColumns()) {
-									List<RecordValue> columnKey = new ArrayList<RecordValue>();
+									if (column.isChecked()) {
+										List<RecordValue> columnKey = new ArrayList<RecordValue>();
 
-									// last part of timestamp in rowkey
-									if (hasTimestamp) {
-										byte[] fullTimestamp = Bytes
-												.toBytes(timestamp);
-										byte[] lastPartTimestamp = Arrays
-												.copyOfRange(
-														fullTimestamp,
-														conf.getTimestampBytePrecision(),
-														fullTimestamp.length);
+										// last part of timestamp in rowkey
+										if (hasTimestamp) {
+											long difference = timestamp
+													- roundedTimestamp;
 
-										RecordValue valTimestamp = new RecordValue(
-												Utils.bytesToBinaryString(lastPartTimestamp),
-												lastPartTimestamp);
+											byte[] byteDiff = Bytes
+													.toBytes(difference);
+											byte[] byteDiffFinal = new byte[conf
+													.getTimestampNumBytesPrecision()];
+											byteDiffFinal = Arrays
+													.copyOfRange(
+															byteDiff,
+															8 - conf.getTimestampNumBytesPrecision(),
+															8);
 
-										columnKey.add(valTimestamp);
+											RecordValue valTimestamp = new RecordValue(
+													Utils.bytesToBinaryString(byteDiffFinal),
+													byteDiffFinal);
+
+											columnKey.add(valTimestamp);
+										}
+
+										// copy many keys
+										for (RecordValue rc : manyPrefix) {
+											columnKey.add(rc);
+										}
+
+										// name of column
+										RecordValue columnName = new RecordValue(
+												column.getAlias(),
+												Bytes.toBytes(column.getName()));
+										columnKey.add(columnName);
+
+										// get cell value
+										RecordValue value = getRecordValue(
+												rs,
+												column.getTable()
+														+ conf.getTableSeparator()
+														+ column.getName(),
+												column.getType());
+
+										Record record = new Record(
+												table.getName(),
+												colFamily.getName(), columnKey,
+												rowkey, value);
+										hbase.insertRecord(record);
+										// System.out.println("\t" + record);
 									}
-
-									// copy many keys
-									for (RecordValue rc : manyPrefix) {
-										columnKey.add(rc);
-									}
-
-									// name of column
-									RecordValue columnName = new RecordValue(
-											column.getAlias(),
-											Bytes.toBytes(column.getName()));
-									columnKey.add(columnName);
-
-									// get cell value
-									RecordValue value = getRecordValue(
-											rs,
-											column.getTable()
-													+ conf.getTableSeparator()
-													+ column.getName(),
-											column.getType());
-
-									Record record = new Record(table.getName(),
-											colFamily.getName(),
-											columnKey, rowkey, value);
-									hbase.insertRecord(record);
-									System.out.println("\t" + record);
 								}
 							}
 						} catch (SQLException e) {
@@ -121,10 +154,25 @@ public class HBaseMigrationManager implements MigrationManager {
 						}
 
 						rs.close();
+
+						System.out.println("Finished migrating column family "
+								+ colFamily.getName());
+						logger.info("Finished migrating column family "
+								+ colFamily.getName());
 					}
+				} else {
+					System.out.println("Skipping table " + table.getName());
+					logger.info("Skipping table " + table.getName());
 				}
+
+				System.out.println("Finished migrating table "
+						+ table.getName());
+				logger.info("Finished migrating table " + table.getName());
+
 			}
 
+			// final flush of whatever is left
+			hbase.flushBuffer();
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -197,6 +245,7 @@ public class HBaseMigrationManager implements MigrationManager {
 							+ conf.getTableSeparator()
 							+ spatialColumn.getLongitude().getName());
 					GeoHash geohash = getGeoHash(lat, lng);
+
 					byte[] geohashBytes = Bytes.toBytes(geohash.toBase32());
 
 					RecordValue val = new RecordValue(geohash.toBase32(),
@@ -212,13 +261,14 @@ public class HBaseMigrationManager implements MigrationManager {
 							keyColumn.getTable() + conf.getTableSeparator()
 									+ keyColumn.getName()).getTime();
 
-					byte[] fullTimestamp = Bytes.toBytes(ts);
-					byte[] firstPartTimestamp = Arrays.copyOfRange(
-							fullTimestamp, 0, conf.getTimestampBytePrecision());
+					// Round down time
+					ts = roundDownTimestamp(ts);
+
+					byte[] roundedTimestamp = Bytes.toBytes(ts);
 
 					RecordValue val = new RecordValue(
-							Utils.bytesToBinaryString(firstPartTimestamp),
-							firstPartTimestamp);
+							Utils.bytesToBinaryString(roundedTimestamp),
+							roundedTimestamp);
 					rowkeyList.add(val);
 				} catch (SQLException e) {
 					e.printStackTrace();
@@ -290,5 +340,24 @@ public class HBaseMigrationManager implements MigrationManager {
 		}
 
 		return null;
+	}
+
+	private long roundDownTimestamp(long timestamp) {
+		Calendar c = Calendar.getInstance();
+		c.setTimeInMillis(timestamp);
+		c.set(Calendar.MINUTE, 0);
+		c.set(Calendar.SECOND, 0);
+		c.set(Calendar.MILLISECOND, 0);
+
+		if (conf.getTimestampBytePrecision() == Configuration.TIMESTAMP_PRECISION_DAY
+				|| conf.getTimestampBytePrecision() == Configuration.TIMESTAMP_PRECISION_MONTH) {
+			c.set(Calendar.HOUR, 0);
+		}
+
+		if (conf.getTimestampBytePrecision() == Configuration.TIMESTAMP_PRECISION_MONTH) {
+			c.set(Calendar.DAY_OF_MONTH, 1);
+		}
+
+		return c.getTimeInMillis();
 	}
 }

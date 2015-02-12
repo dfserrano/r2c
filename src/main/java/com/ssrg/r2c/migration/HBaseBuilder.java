@@ -84,7 +84,6 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 
 			for (ForeignKeyStatus fkStatus : fkList) {
 				if (fkStatus.getType() == ForeignKeyStatus.Type.ONE) {
-
 					// The target is the referenced table
 					Table target = schema.getTable(fkStatus.getRefTable());
 
@@ -215,6 +214,23 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 						checked = true;
 					}
 
+					if (columnFamily.getBaseRelationalTable().equals(
+							"customers")
+							&& !tableName.equals("customers")
+							&& !(colStatus.getName().equals("LASTNAME")
+									|| colStatus.getName().equals("FIRSTNAME") || colStatus
+									.getName().equals("CUSTOMERID"))) {
+						checked = false;
+					}
+					
+					if (columnFamily.getBaseRelationalTable().equals(
+							"products")
+							&& !tableName.equals("products")
+							&& !(colStatus.getName().equals("PROD_ID")
+									|| colStatus.getName().equals("TITLE"))) {
+						checked = false;
+					}
+
 					colOrientedTable.addColumn(columnFamily.getName(),
 							columnFamily.getBaseRelationalTable(),
 							colStatus.getName(), colStatus.getType(), checked);
@@ -256,6 +272,16 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 					if (Main.ENV.equals("DEBUG")) {
 						checked = true;
 					}
+					
+					if (columnFamily.getBaseRelationalTable().equals(
+							"products")
+							&& !table.getName().equals("products")
+							&& !(col.getName().equals("PROD_ID")
+									|| col.getName().equals("TITLE"))) {
+						checked = false;
+					}
+					
+					
 
 					table.addColumn(columnFamily.getName(), col.getTable(),
 							col.getName(), col.getType(), checked);
@@ -330,9 +356,20 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 										.getColumns()) {
 									boolean checked = false;
 
-									if (Main.ENV.equals("DEBUG")) {
+									/*if (Main.ENV.equals("DEBUG")) {
 										checked = true;
 									}
+									
+									System.out.println("\t" + relatedColFamily.getBaseRelationalTable());
+									System.out.println("\t\t" + table.getName());
+									System.out.println("\t\t\t" + column.getName());
+									if (relatedColFamily.getBaseRelationalTable().equals(
+											"products")
+											&& !table.getName().equals("products")
+											&& !(column.getName().equals("PROD_ID")
+													|| column.getName().equals("TITLE"))) {
+										checked = false;
+									}*/
 
 									Column newColumn = new Column(
 											column.getTable(),
@@ -596,16 +633,16 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 
 	private void addJoinToQuery(Query query, List<ForeignKeyStatus> references) {
 		Query join = getJoinQuery(references);
-		
+
 		for (QueryAttribute qa : join.getProjections()) {
 			query.addProjection(qa);
 		}
-		
-		for (String relation :join.getRelations()) {
+
+		for (String relation : join.getRelations()) {
 			query.addRelation(relation);
 		}
-		
-		for (QueryFilter filter :join.getSelections()) {
+
+		for (QueryFilter filter : join.getSelections()) {
 			query.addSelection(filter);
 		}
 	}

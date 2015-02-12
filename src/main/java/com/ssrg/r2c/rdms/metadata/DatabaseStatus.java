@@ -63,7 +63,7 @@ public class DatabaseStatus {
 			return tables.get(tableName).getReferences();
 		}
 
-		throw new Exception("Table does not exist");
+		throw new Exception("Table " + tableName + " does not exist");
 	}
 
 	public boolean areTablesConnected(String tableNameA, String tableNameB)

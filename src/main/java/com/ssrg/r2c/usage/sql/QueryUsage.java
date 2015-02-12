@@ -70,7 +70,6 @@ public class QueryUsage {
 						}
 					}
 				}
-
 			}
 		}
 	}
@@ -94,7 +93,7 @@ public class QueryUsage {
 					for (QueryFilter qf : queryFilters) {
 						QueryAttribute qa = qf.getLeftAttribute();
 
-						// TO-DO: unique or just key?
+						// TODO: unique or just key?
 						if (db.isUniqueKey(qa.getTableName(),
 								qa.getColumnName())) {
 							if (qa.getTableName().equals(tableA)) {
@@ -149,7 +148,7 @@ public class QueryUsage {
 
 					for (int j = i + 1; j < relations.size(); j++) {
 						String relation2 = relations.get(j);
-
+						
 						List<ForeignKeyStatus> connections = db
 								.getForeignKeysConnectingTables(relation1,
 										relation2);

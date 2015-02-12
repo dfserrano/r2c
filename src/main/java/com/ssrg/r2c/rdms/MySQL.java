@@ -42,7 +42,7 @@ public class MySQL implements Database {
 			}
 
 			stmt = connection.createStatement();
-			stmt.setFetchSize(200);
+			stmt.setFetchSize(500);
 			rs = stmt.executeQuery(sqlQuery);
 
 			return rs;

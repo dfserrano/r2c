@@ -165,7 +165,7 @@ public class TableStatus {
 		}
 
 		if (primaryKey == null) {
-			throw new Exception("Table does not have a primary key");
+			throw new Exception("Table " + name + " does not have a primary key");
 		}
 	}
 

@@ -140,9 +140,9 @@ public class MySQLInfo implements DatabaseInfo {
 
 					if (rsi.next()) {
 						int count = rsi.getInt("cnt");
-
+						
 						if (count == 1) {
-							// System.out.println("ONE TO ONE");
+							 // System.out.println("ONE TO ONE");
 							fs.setType(ForeignKeyStatus.Type.ONE);
 						} else {
 							// System.out.println("ONE TO MANY");

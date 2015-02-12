@@ -7,7 +7,7 @@ public class Column implements Cloneable {
 	private String table;
 	private String dataType;
 	private boolean checked;
-	
+
 	public Column(String table, String name, String type, boolean checked) {
 		this.name = name;
 		this.alias = name;
@@ -19,11 +19,11 @@ public class Column implements Cloneable {
 	public String getName() {
 		return name;
 	}
-	
+
 	public String getAlias() {
 		return alias;
 	}
-	
+
 	public String getType() {
 		return dataType;
 	}
@@ -31,18 +31,19 @@ public class Column implements Cloneable {
 	public String getTable() {
 		return table;
 	}
-	
+
 	public boolean isChecked() {
 		return checked;
 	}
-	
+
 	public void setChecked(boolean s) {
 		checked = s;
 	}
-	
+
 	public boolean isLatitude() {
-		if (dataType.equals("float")
-				&& (name.equals("lat") || dataType.equals("latitude"))) {
+		if ((dataType.startsWith("float") || dataType.startsWith("double"))
+				&& (name.toLowerCase().equals("lat") || name.toLowerCase()
+						.equals("latitude"))) {
 			return true;
 		}
 
@@ -50,20 +51,22 @@ public class Column implements Cloneable {
 	}
 
 	public boolean isLongitude() {
-		if (dataType.equals("float")
-				&& (name.equals("lng") || dataType.equals("longitude") || dataType
-						.equals("long"))) {
+		if ((dataType.startsWith("float") || dataType.startsWith("double"))
+				&& (name.toLowerCase().equals("lng")
+						|| name.toLowerCase().equals("longitude")
+						|| name.toLowerCase().equals("lon") || name
+						.toLowerCase().equals("long"))) {
 			return true;
 		}
 
 		return false;
 	}
-	
+
 	public boolean isGeo() {
 		if (isLatitude() || isLongitude()) {
 			return true;
 		}
-		
+
 		return false;
 	}
 
@@ -76,16 +79,15 @@ public class Column implements Cloneable {
 		return false;
 	}
 
-
 	@Override
 	public String toString() {
 		return name;
 	}
-	
+
 	@Override
 	protected Object clone() throws CloneNotSupportedException {
 		Column clone = new Column(table, name, dataType, checked);
-		
+
 		return clone;
 	}
 
@@ -119,6 +121,5 @@ public class Column implements Cloneable {
 			return false;
 		return true;
 	}
-	
-	
+
 }

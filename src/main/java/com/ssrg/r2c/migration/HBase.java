@@ -24,6 +24,7 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 import org.apache.hadoop.hbase.filter.PrefixFilter;
+import org.apache.hadoop.hbase.io.compress.Compression.Algorithm;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import ch.hsr.geohash.GeoHash;
@@ -39,12 +40,24 @@ public class HBase {
 	private Configuration conf;
 	private HConnection connection;
 	private HTableInterface tableInterface;
+	private List<Put> buffer;
+	private String curTable;
+
+	private final int BUFFER_SIZE = 1000;
 
 	public HBase() {
 		conf = HBaseConfiguration.create();
 
-		// conf.set("hbase.zookeeper.quorum", "localhost");
-		// conf.set("hbase.zookeeper.property.clientPort", "2181");
+		buffer = new ArrayList<Put>();
+
+		conf.set("hbase.zookeeper.quorum", "localhost");
+		conf.set("hbase.zookeeper.property.clientPort", "2181");
+
+		try {
+			HBaseAdmin.checkHBaseAvailable(conf);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public HBase(String hostname, int port) {
@@ -52,6 +65,27 @@ public class HBase {
 
 		conf.set("hbase.zookeeper.quorum", hostname);
 		conf.set("hbase.zookeeper.property.clientPort", String.valueOf(port));
+		
+		try {
+			HBaseAdmin.checkHBaseAvailable(conf);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
+	public HBase(String hostname, String quorum, int quorumPort) {
+		this();
+
+		conf.set("hbase.master", hostname + ":60000");
+		conf.set("hbase.zookeeper.quorum", quorum);
+		conf.set("hbase.zookeeper.property.clientPort",
+				String.valueOf(quorumPort));
+		
+		try {
+			HBaseAdmin.checkHBaseAvailable(conf);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public void createTables(Schema schema) {
@@ -59,24 +93,27 @@ public class HBase {
 			HBaseAdmin hbase = new HBaseAdmin(conf);
 
 			for (Table table : schema.getTables()) {
-				System.out.println(table.getAlias());
+				if (!table.isDeleted()) {
+					System.out.println(table.getAlias());
 
-				// drop if exists
-				if (hbase.tableExists(table.getAlias())) {
-					hbase.disableTable(table.getAlias());
-					hbase.deleteTable(table.getAlias());
+					// drop if exists
+					if (hbase.tableExists(table.getAlias())) {
+						hbase.disableTable(table.getAlias());
+						hbase.deleteTable(table.getAlias());
+					}
+
+					HTableDescriptor desc = new HTableDescriptor(
+							table.getAlias());
+
+					for (ColumnFamily colFamily : table.getColumnFamilies()) {
+						HColumnDescriptor cf = new HColumnDescriptor(colFamily
+								.getAlias().getBytes());
+						cf.setCompressionType(Algorithm.GZ);
+						desc.addFamily(cf);
+					}
+
+					hbase.createTable(desc);
 				}
-
-				HTableDescriptor desc = new HTableDescriptor(table.getAlias());
-
-				for (ColumnFamily colFamily : table.getColumnFamilies()) {
-					System.out.println("\t" + colFamily.getAlias());
-					HColumnDescriptor cf = new HColumnDescriptor(colFamily
-							.getAlias().getBytes());
-					desc.addFamily(cf);
-				}
-
-				hbase.createTable(desc);
 			}
 
 			hbase.close();
@@ -89,25 +126,39 @@ public class HBase {
 		}
 	}
 
-	public void insertRecord(Record record) {
+	public void flushBuffer() {
 		try {
-			if (connection == null || connection.isClosed()) {
-				connection = HConnectionManager.createConnection(conf);
-			}
+			if (buffer.size() > 0 && curTable != null && curTable.length() > 0) {
+				if (connection == null || connection.isClosed()) {
+					connection = HConnectionManager.createConnection(conf);
+				}
 
-			if (tableInterface == null
-					|| !tableInterface.getTableDescriptor().getNameAsString()
-							.equals(record.getTableName())) {
-				tableInterface = connection.getTable(record.getTableName());
-			}
+				if (tableInterface == null
+						|| !tableInterface.getTableDescriptor()
+								.getNameAsString().equals(curTable)) {
+					tableInterface = connection.getTable(curTable);
+				}
 
-			Put p = makePut(record);
-			tableInterface.put(p);
+				tableInterface.put(buffer);
+				buffer.clear();
+			}
 		} catch (ZooKeeperConnectionException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public void insertRecord(Record record) {
+		if (buffer.size() > BUFFER_SIZE
+				|| !record.getTableName().equals(curTable)) {
+			flushBuffer();
+
+			curTable = record.getTableName();
+		}
+
+		Put p = makePut(record);
+		buffer.add(p);
 	}
 
 	private Put makePut(Record record) {
@@ -166,29 +217,30 @@ public class HBase {
 		return scanPrefix(tableName, prefixStr, null);
 	}
 
-	public List<Result> scanPrefix(String tableName, String prefixStr, String colFamily)
-			throws IOException {
+	public List<Result> scanPrefix(String tableName, String prefixStr,
+			String colFamily) throws IOException {
 		byte[] prefix = Bytes.toBytes(prefixStr);
-		
+
 		return scanPrefix(tableName, prefix, colFamily, null);
 	}
-	
-	public List<Result> scanPrefix(String tableName, byte[] prefix, String colFamily, byte[] colPrefix)
-			throws IOException {
+
+	public List<Result> scanPrefix(String tableName, byte[] prefix,
+			String colFamily, byte[] colPrefix) throws IOException {
 		if (connection == null || connection.isClosed()) {
 			connection = HConnectionManager.createConnection(conf);
 		}
 
 		List<Result> results = new ArrayList<Result>();
-		
+
 		HTableInterface table = connection.getTable(tableName);
 
 		Scan scan = new Scan(prefix);
 		PrefixFilter prefixFilter = new PrefixFilter(prefix);
 		scan.setFilter(prefixFilter);
-		
+
 		if (colPrefix != null && colPrefix.length > 0) {
-			ColumnPrefixFilter colPrefixFilter = new ColumnPrefixFilter(colPrefix);
+			ColumnPrefixFilter colPrefixFilter = new ColumnPrefixFilter(
+					colPrefix);
 			scan.setFilter(colPrefixFilter);
 		}
 
@@ -198,41 +250,45 @@ public class HBase {
 
 		ResultScanner result = table.getScanner(scan);
 		printResult(result);
-		
+
 		for (Result r : result) {
 			results.add(r);
 		}
-		
+
 		System.out.println("****");
-		
+
 		return results;
 	}
 
-	public List<Result> scanGeohash(String tableName, String colFamily, double latitude, double longitude, int precision)
+	public List<Result> scanGeohash(String tableName, String colFamily,
+			double latitude, double longitude, int precision)
 			throws IOException {
 		if (connection == null || connection.isClosed()) {
 			connection = HConnectionManager.createConnection(conf);
 		}
 
 		List<Result> results = new ArrayList<Result>();
-		
+
 		GeoHash geohash = GeoHash.withCharacterPrecision(latitude, longitude,
 				precision);
 		results.addAll(scanPrefix(tableName, geohash.toBase32(), colFamily));
-		
+
 		GeoHash[] adjacents = geohash.getAdjacent();
 
 		for (int i = 0; i < adjacents.length; i++) {
-			results.addAll(scanPrefix(tableName, adjacents[i].toBase32(), colFamily));
+			results.addAll(scanPrefix(tableName, adjacents[i].toBase32(),
+					colFamily));
 		}
-		
+
 		return results;
 	}
 
 	public void printResult(Map<byte[], byte[]> resultMap) {
-		for (Entry<byte[], byte[]> entry : resultMap.entrySet()) {
-			System.out.println(Bytes.toString(entry.getKey()) + " = "
-					+ Bytes.toString(entry.getValue()));
+		if (resultMap != null) {
+			for (Entry<byte[], byte[]> entry : resultMap.entrySet()) {
+				System.out.println(Bytes.toString(entry.getKey()) + " = "
+						+ Bytes.toString(entry.getValue()));
+			}
 		}
 	}
 
@@ -241,7 +297,8 @@ public class HBase {
 			NavigableMap<byte[], NavigableMap<byte[], NavigableMap<Long, byte[]>>> map = res
 					.getMap();
 
-			System.out.println("key: " + Utils.bytesToBinaryString(res.getRow()));
+			System.out.println("key: "
+					+ Utils.bytesToBinaryString(res.getRow()));
 
 			for (byte[] key1 : map.keySet()) {
 				System.out.println("\t" + Bytes.toString(key1));
