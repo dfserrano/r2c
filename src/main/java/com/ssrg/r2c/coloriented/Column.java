@@ -40,39 +40,34 @@ public class Column implements Cloneable {
 		checked = s;
 	}
 
-	public boolean isLatitude() {
-		if ((dataType.startsWith("float") || dataType.startsWith("double"))
-				&& (name.toLowerCase().equals("lat") || name.toLowerCase()
-						.equals("latitude"))) {
+	public static boolean isLatitude(String name, String dataType) {
+		if ((dataType == null || dataType.equalsIgnoreCase("lat-lng") || dataType.startsWith("float") || dataType.startsWith("double"))
+				&& (name.toLowerCase().equals("lat") || name.toLowerCase().equals("latitude"))) {
 			return true;
 		}
 
 		return false;
 	}
 
-	public boolean isLongitude() {
-		if ((dataType.startsWith("float") || dataType.startsWith("double"))
-				&& (name.toLowerCase().equals("lng")
-						|| name.toLowerCase().equals("longitude")
-						|| name.toLowerCase().equals("lon") || name
-						.toLowerCase().equals("long"))) {
+	public static boolean isLongitude(String name, String dataType) {
+		if ((dataType == null || dataType.equalsIgnoreCase("lat-lng") || dataType.startsWith("float") || dataType.startsWith("double"))
+				&& (name.toLowerCase().equals("lng") || name.toLowerCase().equals("longitude") || name.toLowerCase().equals("lon") || name.toLowerCase().equals("long"))) {
 			return true;
 		}
 
 		return false;
 	}
 
-	public boolean isGeo() {
-		if (isLatitude() || isLongitude()) {
+	public static boolean isGeo(String name, String dataType) {
+		if (isLatitude(name, dataType) || isLongitude(name, dataType)) {
 			return true;
 		}
 
 		return false;
 	}
 
-	public boolean isTemporal() {
-		if (dataType.equals("date") || dataType.equals("time")
-				|| dataType.equals("datetime")) {
+	public static boolean isTemporal(String dataType) {
+		if (dataType != null && (dataType.equals("date") || dataType.equals("time") || dataType.equals("datetime"))) {
 			return true;
 		}
 

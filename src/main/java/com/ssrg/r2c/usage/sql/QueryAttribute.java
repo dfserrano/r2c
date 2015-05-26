@@ -17,10 +17,22 @@ public class QueryAttribute {
 	public String getColumnName() {
 		return columnName;
 	}
+	
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
+
+	public void setColumnName(String colName) {
+		this.columnName = colName;
+	}
 
 	@Override
 	public String toString() {
-		return tableName + "." + columnName;
+		if (columnName != null) {
+			return tableName + "." + columnName;
+		}
+	
+		return tableName;
 	}
 
 	@Override

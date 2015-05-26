@@ -10,6 +10,10 @@ public class Configuration {
 	public static final int TIMESTAMP_NUM_BYTE_DAY = 4;
 	public static final int TIMESTAMP_NUM_BYTE_MONTH = 4; // Complete
 	
+	public static final int TIME_INTERVAL_HOUR = 60 * 60 * 1000;
+	public static final int TIME_INTERVAL_DAY = 24 * TIME_INTERVAL_HOUR;
+	public static final int TIME_INTERVAL_MONTH = 30 * TIME_INTERVAL_DAY;
+	
 	private int timestampBytePrecision = TIMESTAMP_PRECISION_HOUR;
 	private String tableSeparator = ".";
 	private int usageThreshold = 1;
@@ -68,6 +72,18 @@ public class Configuration {
 		}
 		
 		return 3;
+	}
+	
+	public int getOneTimeIntervalUnit() {
+		if (timestampBytePrecision == TIMESTAMP_PRECISION_HOUR) {
+			return TIME_INTERVAL_HOUR;
+		} else if (timestampBytePrecision == TIMESTAMP_PRECISION_DAY) {
+			return TIME_INTERVAL_DAY;
+		} else if (timestampBytePrecision == TIMESTAMP_PRECISION_MONTH) {
+			return TIME_INTERVAL_MONTH;
+		}
+		
+		return 0;
 	}
 
 	public void setTimestampBytePrecision(int timestampBytePrecision) {

@@ -32,6 +32,7 @@ public class TableStatus {
 	private List<ColumnStatus> columns;
 
 	private List<IndexStatus> primaryKey;
+	private String primaryKeyName;
 
 	public TableStatus(String name, int row, Date creation, Date update,
 			List<IndexStatus> indexes,
@@ -56,6 +57,16 @@ public class TableStatus {
 
 	public List<ColumnStatus> getColumns() {
 		return this.columns;
+	}
+	
+	public ColumnStatus getColumn(String name) {
+		for (ColumnStatus column: columns) {
+			if (column.getName().equals(name)) {
+				return column;
+			}
+		}
+		
+		return null;
 	}
 
 	public float getInsertionRate() {
@@ -137,7 +148,9 @@ public class TableStatus {
 		if (keyColumns.size() > 0) {
 			Map<String, List<IndexStatus>> indexesGrouped = getIndexesGrouped();
 
-			for (List<IndexStatus> indexGroup : indexesGrouped.values()) {
+			for (String indexName : indexesGrouped.keySet()) {
+				List<IndexStatus> indexGroup = indexesGrouped.get(indexName);
+				
 				if (indexGroup.size() == keyColumns.size()) {
 
 					int count = 0;
@@ -159,6 +172,7 @@ public class TableStatus {
 
 					if (indexGroup.size() == count) {
 						primaryKey = indexGroup;
+						primaryKeyName = indexName;
 					}
 				}
 			}
@@ -192,5 +206,17 @@ public class TableStatus {
 		return "\n\tTableStatus [name=" + name + ", rowCount=" + rowCount
 				+ ", creationDate=" + creationDate + ", lastUpdate="
 				+ lastUpdate + ", referencesCount=" + references.size() + "]\n";
+	}
+
+	public String getPrimaryKeyName() {
+		return primaryKeyName;
+	}
+
+	public void setPrimaryKeyName(String primaryKeyName) {
+		this.primaryKeyName = primaryKeyName;
+	}
+
+	public void setReferences(List<ForeignKeyStatus> references) {
+		this.references = references;
 	}
 }

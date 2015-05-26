@@ -189,6 +189,24 @@ public class DatabaseStatus {
 
 		return null;
 	}
+	
+	public String getColumnType(String tableName, String columnName) {
+		TableStatus tempTable = getTable(tableName);
+		
+		if (tempTable != null) {
+			ColumnStatus tempCol = tempTable.getColumn(columnName);
+			
+			if (tempCol != null) {
+				return tempCol.getType();
+			}
+			
+			if (columnName.equals("lat-lng")) {
+				return columnName;
+			}
+		}
+		
+		return null;
+	}
 
 	public float getAvgInsertRate() {
 		return avgInsertRate;

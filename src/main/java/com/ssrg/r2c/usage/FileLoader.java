@@ -16,11 +16,12 @@ import com.ssrg.r2c.usage.sql.Query;
 import com.ssrg.r2c.usage.sql.QueryAttribute;
 import com.ssrg.r2c.usage.sql.QueryFilter;
 
-
 public class FileLoader {
 
 	private static Pattern queryPattern = Pattern
-			.compile("^SELECT\\s*\\(([A-Za-z0-9_.,\\s]*)\\)\\s*FROM\\s*\\(([A-Za-z0-9_.,\\s]*)\\)\\s*WHERE\\s*\\(([A-Za-z0-9_.,\\s]*)\\)");
+			.compile("^SELECT\\s*\\((.+?)\\)\\s*FROM\\s*\\((.+?)\\)\\s*WHERE\\s*\\((.+?)\\)");
+	private static Pattern predicatePattern = Pattern
+			.compile("^(.+?)(>=|<=|!=|>|<|=|LIKE)(.+?)$");
 
 	public static List<Query> loadQueriesFromFile(String filePath) {
 		List<Query> queries = new ArrayList<Query>();
@@ -28,7 +29,7 @@ public class FileLoader {
 		BufferedReader reader = null;
 
 		try {
-			//fis = ClassLoader.getSystemResourceAsStream(filePath);
+			// fis = ClassLoader.getSystemResourceAsStream(filePath);
 			fis = new FileInputStream(filePath);
 			reader = new BufferedReader(new InputStreamReader(fis));
 
@@ -59,7 +60,7 @@ public class FileLoader {
 		return queries;
 	}
 
-	private static Query parseQuery(String query) {
+	public static Query parseQuery(String query) {
 		Matcher m = queryPattern.matcher(query);
 
 		if (m.matches()) {
@@ -111,12 +112,30 @@ public class FileLoader {
 
 		String[] wherePieces = where.split(",");
 		for (int i = 0; i < wherePieces.length; i++) {
-			String[] tableColumn = wherePieces[i].split("\\.");
+			Matcher m = predicatePattern.matcher(wherePieces[i]);
 
-			if (tableColumn.length == 2) {
-				QueryAttribute qa = new QueryAttribute(tableColumn[0].trim(),
-						tableColumn[1].trim());
-				result.add(new QueryFilter(qa));
+			if (m.matches()) {
+				String left = m.group(1);
+				String op = m.group(2);
+				String right = m.group(3);
+				
+				String[] leftTableColumn = left.split("\\.");
+
+				if (leftTableColumn.length == 2) {
+					QueryAttribute qaLeft = new QueryAttribute(
+							leftTableColumn[0].trim(), leftTableColumn[1].trim());
+					QueryAttribute qaRight = new QueryAttribute(
+							right, null);
+					result.add(new QueryFilter(qaLeft, qaRight, op));
+				}
+			} else {
+				String[] tableColumn = wherePieces[i].split("\\.");
+
+				if (tableColumn.length == 2) {
+					QueryAttribute qa = new QueryAttribute(
+							tableColumn[0].trim(), tableColumn[1].trim());
+					result.add(new QueryFilter(qa));
+				}
 			}
 		}
 

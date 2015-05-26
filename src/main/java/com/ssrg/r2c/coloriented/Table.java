@@ -10,6 +10,7 @@ public class Table implements Cloneable {
 
 	private String name;
 	private String alias;
+	private String indexName;
 	private List<RowkeyColumn> key;
 	private Hashtable<String, ColumnFamily> colFamilies;
 	private String baseRelationalTable;
@@ -35,11 +36,11 @@ public class Table implements Cloneable {
 	public void setName(String name) {
 		this.name = name;
 	}
-	
+
 	public String getAlias() {
 		return alias;
 	}
-	
+
 	public void setAlias(String alias) {
 		this.alias = alias;
 	}
@@ -59,38 +60,41 @@ public class Table implements Cloneable {
 	public void setKey(List<RowkeyColumn> columns) {
 		key = columns;
 	}
-	
+
 	public boolean isSubsetOfKey(List<String> list) {
 		for (String listColName : list) {
 			boolean found = false;
-			
+
 			for (RowkeyColumn keyCol : getKey()) {
 				if (keyCol.getName().equals(listColName)) {
 					found = true;
 				}
 			}
-			
+
 			if (!found) {
 				return false;
 			}
 		}
-		
+
 		return true;
 	}
 
 	public void setAndEncodeKey(List<Column> columns) {
+		
 		List<RowkeyColumn> keyColumns = new ArrayList<RowkeyColumn>();
 		int columnsLength = columns.size();
 
 		for (int i = 0; i < columnsLength; i++) {
 			Column column = columns.get(i);
 
-			if (column.isGeo() && column.isLatitude()) {
+			if (Column.isGeo(column.getName(), column.getType())
+					&& Column.isLatitude(column.getName(), column.getType())) {
 
 				for (int j = i + 1; j < columnsLength; j++) {
 					Column colAdv = columns.get(j);
-
-					if (colAdv.isGeo() && colAdv.isLongitude()) {
+					if (Column.isGeo(colAdv.getName(), colAdv.getType())
+							&& Column.isLongitude(colAdv.getName(),
+									colAdv.getType())) {
 						RowkeySpatialColumn spatialCol = new RowkeySpatialColumn(
 								column, column, colAdv);
 						keyColumns.add(spatialCol);
@@ -103,12 +107,15 @@ public class Table implements Cloneable {
 					// as it is to the rowkey
 					keyColumns.add(new RowkeyColumn(column));
 				}
-			} else if (column.isGeo() && column.isLatitude()) {
-
+			} else if (Column.isGeo(column.getName(), column.getType())
+					&& Column.isLongitude(column.getName(), column.getType())) {
+				// TO-DO: Check this code
 				for (int j = i + 1; j < columnsLength; j++) {
 					Column colAdv = columns.get(j);
 
-					if (colAdv.isGeo() && colAdv.isLongitude()) {
+					if (Column.isGeo(colAdv.getName(), colAdv.getType())
+							&& Column.isLatitude(colAdv.getName(),
+									colAdv.getType())) {
 						RowkeySpatialColumn spatialCol = new RowkeySpatialColumn(
 								column, column, colAdv);
 						keyColumns.add(spatialCol);
@@ -121,7 +128,7 @@ public class Table implements Cloneable {
 					// it as it is to the rowkey
 					keyColumns.add(new RowkeyColumn(column));
 				}
-			} else if (column.isTemporal()) {
+			} else if (Column.isTemporal(column.getType())) {
 				keyColumns.add(new RowkeyColumn(column,
 						RowkeyColumn.Encoding.TIMESTAMP));
 			} else {
@@ -245,6 +252,14 @@ public class Table implements Cloneable {
 		}
 
 		return s;
+	}
+
+	public String getIndexName() {
+		return indexName;
+	}
+
+	public void setIndexName(String indexName) {
+		this.indexName = indexName;
 	}
 
 }

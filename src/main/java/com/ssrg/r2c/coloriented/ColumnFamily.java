@@ -49,6 +49,16 @@ public class ColumnFamily implements Cloneable {
 	public List<Column> getColumns() {
 		return columns;
 	}
+	
+	public Column getColumn(String colName) {
+		for (Column c : columns) {
+			if (c.getName().equals(colName)) {
+				return c;
+			}
+		}
+		
+		return null;
+	}
 
 	public void setColumns(List<Column> columns) {
 		this.columns = columns;

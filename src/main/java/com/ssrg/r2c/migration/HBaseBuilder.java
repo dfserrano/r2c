@@ -70,6 +70,7 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 		schema = new Schema();
 		for (String tableName : db.getTableNames()) {
 			Table table = new Table(tableName);
+			table.setIndexName(db.getTable(tableName).getPrimaryKeyName());
 			schema.addTable(tableName, table);
 		}
 	}
@@ -256,7 +257,8 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 				table.addColumnFamily(columnFamily.getName(),
 						columnFamily.getBaseRelationalTable(),
 						ColumnFamily.Type.EXT);
-
+				table.getColumnFamily(columnFamily.getName()).setManyKey(columnFamily.getManyKey());
+				
 				String[] pieces = columnFamily.getBaseRelationalTable().split(
 						conf.getExtColFamilyDelimiter());
 				String tableName = pieces[pieces.length - 1];
@@ -351,6 +353,9 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 										relatedColFamily
 												.getBaseRelationalTable(),
 										ColumnFamily.Type.EXT);
+								
+								// pass the key for nested entity
+								newColumnFamily.setManyKey(colFamily.getManyKey());
 
 								for (Column column : relatedColFamily
 										.getColumns()) {
@@ -507,6 +512,7 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 						clone.setAlias(table.getName()
 								+ conf.getClonedTableSeparator()
 								+ indexesEntry.getKey());
+						clone.setIndexName(indexesEntry.getKey());
 
 						// Change row key
 						clone.setAndEncodeKey(fromStringsToColumns(indexesStr,
@@ -670,7 +676,7 @@ public class HBaseBuilder implements ColumnOrientedBuilder {
 						reference.getColumn());
 				QueryAttribute right = new QueryAttribute(
 						reference.getRefTable(), reference.getRefColumn());
-				selections.add(new QueryFilter(left, right));
+				selections.add(new QueryFilter(left, right, "="));
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

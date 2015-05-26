@@ -77,7 +77,7 @@ public class HBaseMigrationManager implements MigrationManager {
 
 								long timestamp = getRowkeyTimestamp(rs,
 										table.getKey());
-								long roundedTimestamp = roundDownTimestamp(timestamp);
+								long roundedTimestamp = Utils.roundDownTimestamp(timestamp, conf);
 
 								boolean hasTimestamp = (timestamp > 0) ? true
 										: false;
@@ -262,7 +262,7 @@ public class HBaseMigrationManager implements MigrationManager {
 									+ keyColumn.getName()).getTime();
 
 					// Round down time
-					ts = roundDownTimestamp(ts);
+					ts = Utils.roundDownTimestamp(ts, conf);
 
 					byte[] roundedTimestamp = Bytes.toBytes(ts);
 
@@ -342,22 +342,5 @@ public class HBaseMigrationManager implements MigrationManager {
 		return null;
 	}
 
-	private long roundDownTimestamp(long timestamp) {
-		Calendar c = Calendar.getInstance();
-		c.setTimeInMillis(timestamp);
-		c.set(Calendar.MINUTE, 0);
-		c.set(Calendar.SECOND, 0);
-		c.set(Calendar.MILLISECOND, 0);
-
-		if (conf.getTimestampBytePrecision() == Configuration.TIMESTAMP_PRECISION_DAY
-				|| conf.getTimestampBytePrecision() == Configuration.TIMESTAMP_PRECISION_MONTH) {
-			c.set(Calendar.HOUR, 0);
-		}
-
-		if (conf.getTimestampBytePrecision() == Configuration.TIMESTAMP_PRECISION_MONTH) {
-			c.set(Calendar.DAY_OF_MONTH, 1);
-		}
-
-		return c.getTimeInMillis();
-	}
+	
 }

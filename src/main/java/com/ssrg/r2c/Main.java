@@ -3,6 +3,9 @@ package com.ssrg.r2c;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+
 import com.ssrg.r2c.coloriented.Schema;
 import com.ssrg.r2c.migration.HBaseBuilder;
 import com.ssrg.r2c.migration.HBaseMigrationManager;
@@ -25,6 +28,8 @@ public class Main {
 		DatabaseStatus db;
 		Schema schema;
 		
+		Logger.getRootLogger().setLevel(Level.INFO);
+		
 		Configuration conf = new Configuration();
 		conf.setTimestampBytePrecision(Configuration.TIMESTAMP_PRECISION_HOUR);
 		//conf.setHbaseHostname("node1.ssrg.ca:9000");
@@ -41,7 +46,7 @@ public class Main {
 		excludedTables.add("cust_hist");
 		excludedTables.add("reorder");
 
-		//Database mySqlDatabase = new MySQL("jdbc:mysql://10.1.1.76/" + dbName,	"r2c", "reltocolumn", dbName);
+		//Database mySqlDatabase = new MySQL("jdbc:mysql://10.12.11.14/" + dbName,	"r2c", "reltocolumn", dbName);
 		Database mySqlDatabase = new MySQL("jdbc:mysql://localhost/" + dbName,	"root", "Giba007G", dbName);
 		DatabaseInfo info = new MySQLInfo((MySQL) mySqlDatabase, excludedTables);
 
@@ -63,8 +68,8 @@ public class Main {
 
 		System.out.println(schema);
 
-		//MigrationManager migrator = new HBaseMigrationManager(schema, conf);
-		//migrator.migrate(mySqlDatabase);
+		MigrationManager migrator = new HBaseMigrationManager(schema, conf);
+		migrator.migrate(mySqlDatabase);
 		
 	}
 }
